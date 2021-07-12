@@ -767,6 +767,14 @@ Type::make_one_union_field(vector<const Type*> &fields, vector<CVQualifiers> &qf
 			vector<Type*> ok_nonstruct_types;
 			vector<Type*> struct_types;
 			for (i = 0; i < AllTypes.size(); i++) {
+				// Filter out pointer types.
+				// See https://github.com/csmith-project/csmith/issues/108 for details.
+				// This includes the cases that:
+				// 1) the type itself is a pointer, or
+				// 2) the type is struct/union that contains a pointer field.
+
+				if (AllTypes[i]->contain_pointer_field()) continue;
+
 				if ((AllTypes[i]->eType != eStruct) && (AllTypes[i]->eType != eUnion)) {
 					ok_nonstruct_types.push_back(AllTypes[i]);
 					continue;
@@ -794,13 +802,9 @@ Type::make_one_union_field(vector<const Type*> &fields, vector<CVQualifiers> &qf
 				type = struct_types[pure_rnd_upto(struct_types.size())];
 				assert(type->eType == eStruct);
 			}
-			// 10% chance to be char* if pointer is allowed
-			else if (CGOptions::pointers() && CGOptions::int8() && pure_rnd_flipcoin(10)) {
-				type = find_pointer_type(&get_simple_type(eChar), true);
-			}
 			else {
-					unsigned int i = pure_rnd_upto(ok_nonstruct_types.size());
-					const Type* t = ok_nonstruct_types[i];
+				unsigned int i = pure_rnd_upto(ok_nonstruct_types.size());
+				const Type* t = ok_nonstruct_types[i];
 				if (t->eType == eSimple && SIMPLE_TYPES_PROB_FILTER->filter(t->simple_type)) {
 					continue;
 				}
@@ -1426,6 +1430,7 @@ Type::is_signed(void) const
 		case eUShort:
 		case eULong:
 		case eULongLong:
+		case eUInt128:
 			return false;
 			break;
 		default:
